@@ -1,35 +1,51 @@
-"""<project> server: one Lambda behind a Function URL — JSON API for the driver, web console at GET /.
+"""s3shift server: one Lambda behind a Function URL — Redshift SQL over HTTP for the driver, a Query Editor
+style console at GET /. The engine (engine.py) is DuckDB over your S3 and RDS data.
 
-Template. The first half (JSON, request body, HTTP Basic auth, routing, error mapping, timing) is the
-same in every project of the series; replace the routes in the second half.
+    GET  /                         console (index.html)
+    POST /api/query                {"sql", "params"?, "database"?} -> {columns, rows, rowcount, scanned, ms}
+                                   or {"next_token"} for the next page of a large result
+    GET  /api/tables?database=     console: the catalog (tables, views, external schemas)
 
-    GET  /                      console (index.html)
-    GET  /api/ping              {"ok": true}
-    GET  /api/items             example list
-    POST /api/items             example create {name}
+Large results: replies are capped at PAGE_BYTES; the rest is written to s3://<bucket>/results/<id>.json
+(deleted by a lifecycle rule after a day) and served page by page with next_token.
+
+Values that JSON cannot carry travel as markers: {"$n": "1.50"} Decimal, {"$d": "2026-01-02"} date,
+{"$ts": "2026-01-02 03:04:05"} timestamp, {"$t": "03:04:05"} time, {"$b": base64} bytes.
 """
 import base64
+import datetime
+import decimal
 import hmac
 import json
 import os
 import re
 import time
+import uuid
+
+import boto3
+
+from engine import Engine, SQLError
 
 USER = os.environ.get("USER_NAME", "")
 PASSWORD = os.environ.get("PASSWORD", "")
 CONSOLE = os.environ.get("CONSOLE", "1") == "1"
+BUCKET = os.environ.get("BUCKET", "s3shift")
+PAGE_BYTES = 4 * 1024 * 1024   # well under Lambda's 6 MB response limit
 
 with open(os.path.join(os.path.dirname(__file__), "index.html"), encoding="utf-8") as f:
     INDEX_HTML = f.read()
 
-NAME = r"[A-Za-z0-9_-]{1,64}"   # the pattern for names in paths
+_s3 = None
+
+
+def s3():
+    global _s3
+    if _s3 is None:
+        _s3 = boto3.client("s3")
+    return _s3
 
 
 class BadRequest(Exception):
-    pass
-
-
-class Forbidden(Exception):
     pass
 
 
@@ -41,7 +57,6 @@ def _json(status, data):
 
 
 def _body(event):
-    """The JSON request body; 400 when it is not a JSON object."""
     raw = event.get("body") or "{}"
     try:
         if event.get("isBase64Encoded"):
@@ -55,7 +70,6 @@ def _body(event):
 
 
 def _authed(event):
-    """HTTP Basic, constant-time compare. No USER_NAME configured = no auth (do not do that)."""
     if not USER:
         return True
     auth = (event.get("headers") or {}).get("authorization", "")
@@ -66,9 +80,6 @@ def _authed(event):
     except Exception:
         return False
     return hmac.compare_digest(user.encode(), USER.encode()) & hmac.compare_digest(password.encode(), PASSWORD.encode())
-
-
-ERRORS = [(BadRequest, 400), (Forbidden, 403)]   # exception class -> HTTP status; add the project's own
 
 
 def lambda_handler(event, context):
@@ -87,36 +98,106 @@ def lambda_handler(event, context):
                 out = handler(event, **match.groupdict())
                 status, data = out if isinstance(out, tuple) else (200, out)
                 break
-    except Exception as e:  # noqa: BLE001 - every error becomes a JSON response
-        status = next((s for cls, s in ERRORS if isinstance(e, cls)), 500)
-        data = {"error": str(e) if status < 500 else f"{type(e).__name__}: {e}"}
+    except BadRequest as e:
+        status, data = 400, {"error": str(e)}
+    except SQLError as e:
+        status, data = 400, {"error": str(e), "kind": e.kind}
+    except Exception as e:  # noqa: BLE001
+        status, data = 500, {"error": f"{type(e).__name__}: {e}"}
     data.setdefault("ms", round((time.perf_counter() - t0) * 1000, 1))
     return _json(status, data)
 
 
-# ---------------- the project's API ----------------
+# ---------------- values ----------------
 
-_ITEMS = []   # example state; a real project talks to its AWS primitive here
+def _cell(v):
+    if isinstance(v, decimal.Decimal):
+        return {"$n": str(v)}
+    if isinstance(v, datetime.datetime):
+        return {"$ts": v.isoformat(sep=" ")}
+    if isinstance(v, datetime.date):
+        return {"$d": v.isoformat()}
+    if isinstance(v, datetime.time):
+        return {"$t": v.isoformat()}
+    if isinstance(v, (bytes, bytearray, memoryview)):
+        return {"$b": base64.b64encode(bytes(v)).decode()}
+    if isinstance(v, float) and (v != v or v in (float("inf"), float("-inf"))):
+        return {"$f": str(v)}
+    if isinstance(v, (datetime.timedelta, uuid.UUID)):
+        return str(v)
+    return v
 
 
-def ping(event):
-    return {"ok": True}
+def _param(v):
+    if isinstance(v, dict) and len(v) == 1:
+        (tag, text), = v.items()
+        if tag == "$b":
+            return base64.b64decode(text)
+        if tag == "$n":
+            return decimal.Decimal(text)
+        if tag == "$d":
+            return datetime.date.fromisoformat(text)
+        if tag == "$ts":
+            return datetime.datetime.fromisoformat(text)
+    return v
 
 
-def list_items(event):
-    return {"items": _ITEMS}
+def _page(rows, offset):
+    """As many rows from offset as fit in PAGE_BYTES."""
+    out, size = [], 0
+    for row in rows[offset:]:
+        size += len(json.dumps(row, default=str)) + 2
+        if out and size > PAGE_BYTES:
+            break
+        out.append(row)
+    return out
 
 
-def create_item(event):
-    name = _body(event).get("name")
-    if not name or not re.fullmatch(NAME, name):
-        raise BadRequest("name must match " + NAME)
-    _ITEMS.append({"name": name})
-    return 201, {"item": {"name": name}}
+# ---------------- the API ----------------
+
+def query(event):
+    body = _body(event)
+    token = body.get("next_token")
+    if token:
+        try:
+            rid, offset = token.rsplit(":", 1)
+            offset = int(offset)
+            stored = json.loads(s3().get_object(Bucket=BUCKET, Key=f"results/{rid}.json")["Body"].read())
+        except Exception:
+            raise BadRequest("invalid or expired next_token") from None
+        rows = _page(stored["rows"], offset)
+        nxt = offset + len(rows)
+        out = {"columns": stored["columns"], "rows": rows, "rowcount": stored["rowcount"]}
+        if nxt < len(stored["rows"]):
+            out["next_token"] = f"{rid}:{nxt}"
+        return out
+    sql = body.get("sql")
+    if not isinstance(sql, str) or not sql.strip():
+        raise BadRequest("sql must be a non-empty string")
+    params = body.get("params") or []
+    if not isinstance(params, list):
+        raise BadRequest("params must be a list")
+    engine = Engine(BUCKET, body.get("database") or "dev", s3())
+    result = engine.run(sql, [_param(p) for p in params])
+    rows = [[_cell(v) for v in r] for r in result["rows"]]
+    out = {"columns": result["columns"], "rows": rows, "rowcount": result["rowcount"], "scanned": engine.scanned}
+    first = _page(rows, 0)
+    if len(first) < len(rows):
+        rid = uuid.uuid4().hex
+        s3().put_object(Bucket=BUCKET, Key=f"results/{rid}.json",
+                        Body=json.dumps({"columns": result["columns"], "rows": rows, "rowcount": result["rowcount"]}, default=str).encode())
+        out["rows"], out["next_token"] = first, f"{rid}:{len(first)}"
+    return out
+
+
+def tables(event):
+    qs = event.get("queryStringParameters") or {}
+    cat = Engine(BUCKET, qs.get("database") or "dev", s3()).catalog()
+    schemas = {n: {k: v for k, v in s.items() if k != "password"} for n, s in cat["schemas"].items()}
+    return {"tables": cat["tables"], "schemas": schemas}
 
 
 ROUTES = [
-    ("GET",  re.compile(r"/api/ping$"), ping),
-    ("GET",  re.compile(r"/api/items$"), list_items),
-    ("POST", re.compile(r"/api/items$"), create_item),
+    ("POST", re.compile(r"/api/query$"), query),
+    ("GET",  re.compile(r"/api/tables$"), tables),
 ]

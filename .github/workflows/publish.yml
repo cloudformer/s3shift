@@ -12,5 +12,5 @@ jobs:
     with:
       install: "pytest boto3 duckdb psycopg2-binary moto"
       compose-service: "postgres"
-      test-env: "POSTGRES_DSN=postgresql://postgres:test@127.0.0.1:5432/compat"
+      test-env: "POSTGRES_DSN=postgresql://postgres:test@127.0.0.1:5433/compat"
     secrets: inherit

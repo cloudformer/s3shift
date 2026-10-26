@@ -1,0 +1,5 @@
+# Packaged into the Lambda layer by terraform (pip download for Linux x86_64, Python 3.12).
+# duckdb: the engine. pymysql / psycopg2-binary: the standard clients for CREATE EXTERNAL SCHEMA ... FROM MYSQL / POSTGRES.
+duckdb==2.0.0
+pymysql==1.1.1
+psycopg2-binary==2.9.10

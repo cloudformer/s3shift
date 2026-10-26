@@ -31,7 +31,7 @@ variable "env" {
 variable "name" {
   description = "Project name; resources are <name>-lambda, <name>-lambda-role"
   type        = string
-  default     = "<project>"
+  default     = "s3shift"
 }
 
 # ---- the service's credentials (HTTP Basic on the Function URL) ----
@@ -65,4 +65,29 @@ variable "console" {
   description = "Serve the built-in web console at GET /. false = API only."
   type        = bool
   default     = true
+}
+
+# ---- s3shift ----
+variable "memory_mb" {
+  description = "Lambda memory: also the CPU share and the largest query DuckDB can hold (up to 10240)"
+  type        = number
+  default     = 3008
+}
+
+variable "read_buckets" {
+  description = "Your data buckets s3shift may read (external tables, COPY sources), e.g. [\"my-data-lake\"]"
+  type        = list(string)
+  default     = []
+}
+
+variable "vpc_subnet_ids" {
+  description = "Private subnets, only for CREATE EXTERNAL SCHEMA against a private RDS. The Lambda then needs an S3 gateway endpoint (or NAT) to reach S3."
+  type        = list(string)
+  default     = []
+}
+
+variable "vpc_security_group_ids" {
+  description = "Security groups for the VPC config (allowed by the RDS security group on 3306 / 5432)"
+  type        = list(string)
+  default     = []
 }

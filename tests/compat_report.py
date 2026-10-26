@@ -13,15 +13,17 @@ import platform
 import re
 
 CONFIG = {
-    "title": "<project> compatibility report",
+    "title": "s3shift compatibility report",
     "report": os.path.join(os.path.dirname(__file__), "compat", "REPORT.md"),
     # (key, section title, substring of the test file name, reference description or callable)
     "suites": [
-        ("reference", "<project>.<client> vs <replaces>", "test_reference",
-         lambda: versions.get("reference") or "<replaces> (not run)"),
+        ("postgres", "s3shift.redshift_connector vs PostgreSQL (Redshift's SQL dialect)", "test_sql",
+         lambda: versions.get("reference") or "PostgreSQL (not run)"),
+        ("redshift", "Redshift-only statements (checked against Redshift's documented behaviour)", "test_redshift",
+         "Redshift documentation"),
     ],
     "version": lambda: os.environ["PACKAGE"] + " " + __import__(os.environ["PACKAGE"]).__version__,
-    "categories": ["Basics", "Data", "Queries", "Errors", "Metadata", "Unsupported", "General"],
+    "categories": ["DDL", "DML", "Queries", "Functions", "Types", "Errors", "Load / unload", "External data", "Unsupported", "General"],
 }
 
 features = {}   # nodeid -> {"suite", "feature", "gap", "unsupported", "quirk", "fail"}

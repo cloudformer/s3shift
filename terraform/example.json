@@ -4,11 +4,16 @@
   "assume_role_arn": "",
 
   "env": "dev",
-  "name": "<project>",
+  "name": "s3shift",
 
   "user": "admin",
   "password": "CHANGE-ME",
 
   "endpoint_auth": "NONE",
-  "console": true
+  "console": true,
+
+  "memory_mb": 3008,
+  "read_buckets": [],
+  "vpc_subnet_ids": [],
+  "vpc_security_group_ids": []
 }

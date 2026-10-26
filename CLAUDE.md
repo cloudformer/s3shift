@@ -1,4 +1,4 @@
-# <project> — working notes for Claude
+# s3shift — working notes for Claude
 
 This repository is one project of the **Redefine AWS Serverless** series (SERIES.md): an AWS service that
 bills while idle, rebuilt on primitives that cost ≈ $0 when idle, behind the standard client's API.

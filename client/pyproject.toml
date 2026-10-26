@@ -3,29 +3,30 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "s3shift"           # <project>: repo = pip = import name
+name = "s3shift"
 version = "0.1.0"
-description = "A truly serverless <replaces> on your own AWS account: <built on>, ≈ $0 when idle. Client named after the standard one: <project>.<client>."
+description = "A truly serverless Redshift on your own AWS account: Redshift SQL on DuckDB in a Lambda, over your S3 and RDS data, ≈ $0 when idle. redshift_connector API: from s3shift import redshift_connector."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "Frank Zhang" }]
-keywords = ["serverless", "aws", "lambda", "<replaces>"]
+keywords = ["serverless", "aws", "lambda", "redshift", "duckdb", "s3", "data-warehouse", "sql", "analytics"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
+  "Topic :: Database",
 ]
-dependencies = []  # standard library only
+dependencies = []  # standard library only (pandas only for fetch_dataframe)
 
 [project.urls]
-Homepage = "https://github.com/cloudformer/<project>"
-Repository = "https://github.com/cloudformer/<project>"
-Deploy = "https://github.com/cloudformer/<project>#quick-start"
-Compatibility = "https://github.com/cloudformer/<project>/blob/main/tests/compat/REPORT.md"
-Changelog = "https://github.com/cloudformer/<project>/blob/main/CHANGELOG.md"
-Issues = "https://github.com/cloudformer/<project>/issues"
+Homepage = "https://github.com/cloudformer/s3shift"
+Repository = "https://github.com/cloudformer/s3shift"
+Deploy = "https://github.com/cloudformer/s3shift#quick-start"
+Compatibility = "https://github.com/cloudformer/s3shift/blob/main/tests/compat/REPORT.md"
+Changelog = "https://github.com/cloudformer/s3shift/blob/main/CHANGELOG.md"
+Issues = "https://github.com/cloudformer/s3shift/issues"
 
 [tool.setuptools]
-packages = ["s3shift"]     # rename the directory client/project/ to client/<project>/
+packages = ["s3shift"]
