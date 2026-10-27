@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "s3shift"
-version = "0.1.0"
+version = "0.1.1"
 description = "A truly serverless Redshift on your own AWS account: Redshift SQL on DuckDB in a Lambda, over your S3 and RDS data, ≈ $0 when idle. redshift_connector API: from s3shift import redshift_connector."
 readme = "README.md"
 requires-python = ">=3.9"

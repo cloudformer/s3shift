@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 — 2026-10-26
+
+The PyPI page shows the architecture image.
+
 ## 0.1.0 — 2026-10-26
 
 First release. `from s3shift import redshift_connector`: Redshift SQL on DuckDB in a Lambda, over your own

@@ -4,6 +4,8 @@
 SQL on DuckDB in a Lambda, over your own S3 and RDS data, ≈ $0 when idle.** The redshift_connector API,
 standard library only. Part of [Redefine AWS Serverless](https://github.com/topics/redefine-aws-serverless).
 
+![s3shift architecture](https://raw.githubusercontent.com/cloudformer/s3shift/main/docs/architecture.svg)
+
 ```bash
 pip install s3shift
 ```
