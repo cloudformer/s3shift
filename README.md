@@ -113,9 +113,10 @@ Run it yourself — the same commands CI runs on every push:
 
 ```bash
 python3 -m pip install pytest boto3 moto duckdb psycopg2-binary
-docker compose -f tests/compat/docker-compose.yml up -d postgres
-POSTGRES_DSN=postgresql://postgres:test@127.0.0.1:5433/compat python3 -m pytest tests -q
-docker compose -f tests/compat/docker-compose.yml down
+python3 -m pytest tests -q                 # leaves Docker alone: live if PostgreSQL is running, else the compat tests are skipped
+python3 -m pytest tests -q --docker up     # starts PostgreSQL in Docker, waits until healthy, tests; keeps it running
+python3 -m pytest tests -q --docker run    # the same, then stops it if all passed (on a failure it keeps running)
+python3 -m pytest tests -q --docker down   # the same, then stops it whatever the result
 COMPAT_DRY=1 python3 -m pytest tests/compat -q -s        # no Docker: s3shift side only
 ```
 

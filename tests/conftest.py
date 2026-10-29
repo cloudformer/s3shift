@@ -31,6 +31,8 @@ os.environ.setdefault("S3SHIFT_CACHE", tempfile.mkdtemp(prefix="s3shift-cache-")
 from compat_report import (pytest_collection_modifyitems, pytest_configure,  # noqa: E402,F401
                            pytest_runtest_logreport, pytest_sessionfinish, pytest_terminal_summary)
 
+pytest_plugins = ["compat_docker"]   # python3 -m pytest tests -q [--docker up | run | down]
+
 AUTH = "Basic " + base64.b64encode(b"admin:pw").decode()
 
 

@@ -106,9 +106,10 @@ schema、`DISTKEY`、`NVL` …）按 Redshift 文档的行为验证。
 
 ```bash
 python3 -m pip install pytest boto3 moto duckdb psycopg2-binary
-docker compose -f tests/compat/docker-compose.yml up -d postgres
-POSTGRES_DSN=postgresql://postgres:test@127.0.0.1:5433/compat python3 -m pytest tests -q
-docker compose -f tests/compat/docker-compose.yml down
+python3 -m pytest tests -q                 # 不碰 Docker：PostgreSQL 在跑就实时比对，否则跳过兼容性测试
+python3 -m pytest tests -q --docker up     # 在 Docker 里启动 PostgreSQL，等健康后测试；测完保持运行
+python3 -m pytest tests -q --docker run    # 同上，全部通过就关掉；有失败就保持运行并提示
+python3 -m pytest tests -q --docker down   # 同上，不管结果一律关掉
 COMPAT_DRY=1 python3 -m pytest tests/compat -q -s        # 不用 Docker:只跑 s3shift 这边
 ```
 
