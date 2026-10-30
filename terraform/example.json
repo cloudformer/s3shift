@@ -4,13 +4,12 @@
   "assume_role_arn": "",
 
   "env": "dev",
-  "name": "s3shift",
+  "project_name": "s3shift",
 
-  "user": "admin",
-  "password": "CHANGE-ME",
-
-  "endpoint_auth": "NONE",
   "console": true,
+  "function_url_auth": "NONE",
+  "console_auth_username": "admin",
+  "console_auth_password": "CHANGE-ME",
 
   "memory_mb": 3008,
   "read_buckets": [],

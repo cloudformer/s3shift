@@ -42,7 +42,7 @@ returns, the engine is gone.
 ### 1. Deploy
 
 ```bash
-cp terraform/example.json terraform/my.json      # set aws_profile, env, user, password, read_buckets
+cp terraform/example.json terraform/my.json      # set aws_profile, env, console_auth_username, console_auth_password, read_buckets
 terraform -chdir=terraform init
 terraform -chdir=terraform apply -var-file=my.json
 terraform -chdir=terraform output                 # console_url, bucket
@@ -57,7 +57,7 @@ that can read the buckets you list in `read_buckets`. To query a private RDS, se
 
 ### 2. Open the query editor
 
-Open `console_url` in a browser, sign in with `user` / `password`. Paste this to get data to click around
+Open `console_url` in a browser, sign in with `console_auth_username` / `console_auth_password`. Paste this to get data to click around
 (the statements run in order; replace the bucket in the last two with one from `read_buckets` to try your own data):
 
 ```sql

@@ -1,8 +1,8 @@
 data "aws_caller_identity" "me" {}
 
 locals {
-  role         = "${var.name}-lambda-role"
-  bucket       = "${var.name}-${var.env}-${data.aws_caller_identity.me.account_id}"
+  role         = "${var.project_name}-lambda-role"
+  bucket       = "${var.project_name}-${var.env}-${data.aws_caller_identity.me.account_id}"
   requirements = "${path.module}/../src/server/requirements.txt"
   layer_dir    = "${path.module}/.build/layer"
 }
@@ -108,7 +108,7 @@ data "archive_file" "layer" {
 }
 
 resource "aws_lambda_layer_version" "deps" {
-  layer_name          = "${var.name}-deps"
+  layer_name          = "${var.project_name}-deps"
   filename            = data.archive_file.layer.output_path
   source_code_hash    = data.archive_file.layer.output_base64sha256
   compatible_runtimes = ["python3.12"]
@@ -123,7 +123,7 @@ data "archive_file" "server" {
 }
 
 resource "aws_lambda_function" "server" {
-  function_name    = "${var.name}-lambda"
+  function_name    = "${var.project_name}-lambda"
   role             = aws_iam_role.lambda.arn
   runtime          = "python3.12"
   handler          = "lambda_function.lambda_handler"
@@ -147,19 +147,19 @@ resource "aws_lambda_function" "server" {
   environment {
     variables = {
       BUCKET    = aws_s3_bucket.data.bucket
-      USER_NAME = var.user
-      PASSWORD  = var.password
+      USER_NAME = var.console_auth_username
+      PASSWORD  = var.console_auth_password
       CONSOLE   = var.console ? "1" : "0"
     }
   }
 }
 
-# endpoint_auth = NONE:    public URL, our user/password is the only gate. A public URL
-#                          needs BOTH permission statements (AWS requirement since Oct 2025).
-# endpoint_auth = AWS_IAM: AWS verifies SigV4 + IAM first; no public permissions are created.
+# function_url_auth = NONE:    public URL, our user/password is the only gate. A public URL
+#                              needs BOTH permission statements (AWS requirement since Oct 2025).
+# function_url_auth = AWS_IAM: AWS verifies SigV4 + IAM first; no public permissions are created.
 resource "aws_lambda_function_url" "server" {
   function_name      = aws_lambda_function.server.function_name
-  authorization_type = var.endpoint_auth
+  authorization_type = var.function_url_auth
   cors {
     allow_origins = ["*"]
     allow_methods = ["*"]
@@ -168,7 +168,7 @@ resource "aws_lambda_function_url" "server" {
 }
 
 resource "aws_lambda_permission" "url" {
-  count                  = var.endpoint_auth == "NONE" ? 1 : 0
+  count                  = var.function_url_auth == "NONE" ? 1 : 0
   statement_id           = "AllowPublicFunctionUrl"
   action                 = "lambda:InvokeFunctionUrl"
   function_name          = aws_lambda_function.server.function_name
@@ -177,7 +177,7 @@ resource "aws_lambda_permission" "url" {
 }
 
 resource "aws_lambda_permission" "url_invoke" {
-  count                    = var.endpoint_auth == "NONE" ? 1 : 0
+  count                    = var.function_url_auth == "NONE" ? 1 : 0
   statement_id             = "AllowPublicFunctionUrlInvoke"
   action                   = "lambda:InvokeFunction"
   function_name            = aws_lambda_function.server.function_name

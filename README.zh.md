@@ -38,7 +38,7 @@ RDS 表通过标准客户端（pymysql / psycopg2）读，托管表是 s3shift �
 ### 1. 部署
 
 ```bash
-cp terraform/example.json terraform/my.json      # 改 aws_profile、env、user、password、read_buckets
+cp terraform/example.json terraform/my.json      # 改 aws_profile、env、console_auth_username、console_auth_password、read_buckets
 terraform -chdir=terraform init
 terraform -chdir=terraform apply -var-file=my.json
 terraform -chdir=terraform output                 # console_url、bucket
@@ -52,7 +52,7 @@ S3 网关终端节点）。CloudFormation：计划中（task 2）。
 
 ### 2. 打开查询编辑器
 
-浏览器打开 `console_url`，用 `user` / `password` 登录。粘下面这段就有数据可以点（按顺序执行；最后两句把桶换成
+浏览器打开 `console_url`，用 `console_auth_username` / `console_auth_password` 登录。粘下面这段就有数据可以点（按顺序执行；最后两句把桶换成
 `read_buckets` 里的一个，就能试你自己的数据）：
 
 ```sql
